@@ -1,68 +1,69 @@
-name: 'CI: Detect flaky tests'
+name: 'Debug esbuild strictness'
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - 'dev-packages/browser-integration-tests/suites/**/test.ts'
-    branches-ignore:
-      - master
-
-env:
-  HEAD_COMMIT: ${{ github.event.inputs.commit || github.sha }}
-
-# Cancel in progress workflows on pull_requests.
-# https://docs.github.com/en/actions/using-jobs/using-concurrency#example-using-a-fallback-value
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
 
 jobs:
-  flaky-detector:
+  esbuild-strictness:
+    name: 'esbuild strictness (Node ${{ matrix.node }})'
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    name: 'Check tests for flakiness'
-    # Also skip if PR is from master -> develop
-    if: ${{ github.base_ref != 'master' && github.ref != 'refs/heads/master' }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20.19, 22, 24, 26]
     steps:
-      - name: Check out current branch
+      - name: Check out investigation branch
         uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          version: 9.15.9
+
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
-          node-version-file: 'package.json'
+          node-version: ${{ matrix.node }}
           cache: 'yarn'
 
-      - name: Install dependencies
+      - name: Install repository dependencies
         run: yarn install --ignore-engines --frozen-lockfile
 
-      - name: Build packages
-        run: yarn build
+      - name: Build and pack local dependencies
+        run: |
+          yarn build:dev:filter @sentry/core
+          yarn --cwd packages/core build:tarball
+          yarn build:dev:filter @sentry/bundler-plugins
+          yarn --cwd packages/bundler-plugins build:tarball
 
-      - name: Install Playwright
-        uses: ./.github/actions/install-playwright
-        with:
-          browsers: 'chromium'
+      - name: Install esbuild fixture dependencies
+        working-directory: dev-packages/bundler-plugin-integration-tests/fixtures/esbuild
+        run: pnpm install --force
 
-      - name: Determine changed tests
-        uses: dorny/paths-filter@v4.0.3
-        id: changed
-        with:
-          list-files: json
-          filters: |
-            browser_integration: dev-packages/browser-integration-tests/suites/**/test.ts
+      - name: Build strictness fixtures
+        working-directory: dev-packages/bundler-plugin-integration-tests/fixtures/esbuild
+        run: node cjs-directives.config.js
 
-      - name: Detect flaky tests
-        id: test
-        run: yarn test:detect-flaky
-        working-directory: dev-packages/browser-integration-tests
-        env:
-          CHANGED_TEST_PATHS: ${{ steps.changed.outputs.browser_integration_files }}
-          TEST_RUN_COUNT: 'AUTO'
+      - name: Print environment and generated bundles
+        working-directory: dev-packages/bundler-plugin-integration-tests/fixtures/esbuild
+        run: |
+          node -p 'JSON.stringify({ version: process.version, execArgv: process.execArgv, nodeOptions: process.env.NODE_OPTIONS })'
+          sed -n '1,120p' out/cjs-directives/static-injection/strict.cjs
+          sed -n '1,120p' out/cjs-directives/static-injection/sloppy.cjs
+          sed -n '1,160p' out/cjs-directives/debug-id-injection/strict.cjs
+          sed -n '1,160p' out/cjs-directives/debug-id-injection/sloppy.cjs
 
-      - name: Upload Playwright Traces
+      - name: Execute generated bundles
+        working-directory: dev-packages/bundler-plugin-integration-tests/fixtures/esbuild
+        run: |
+          node out/cjs-directives/static-injection/strict.cjs
+          node out/cjs-directives/static-injection/sloppy.cjs
+          node out/cjs-directives/debug-id-injection/strict.cjs
+          node out/cjs-directives/debug-id-injection/sloppy.cjs
+
+      - name: Upload generated bundles
+        if: always()
         uses: actions/upload-artifact@v7
-        if: failure() && steps.test.outcome == 'failure'
         with:
-          name: playwright-test-results
-          path: dev-packages/browser-integration-tests/test-results
-          retention-days: 5
+          name: esbuild-strictness-node-${{ matrix.node }}
+          path: dev-packages/bundler-plugin-integration-tests/fixtures/esbuild/out/cjs-directives
+          retention-days: 2
