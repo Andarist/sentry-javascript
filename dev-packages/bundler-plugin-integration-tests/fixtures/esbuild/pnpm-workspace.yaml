@@ -1,0 +1,7 @@
+allowBuilds:
+  "@sentry/cli": false
+  esbuild: true
+overrides:
+  "@sentry/bundler-plugins": file:../../../../packages/bundler-plugins/sentry-bundler-plugins-10.67.0.tgz
+  "@sentry/core": file:../../../../packages/core/sentry-core-10.67.0.tgz
+  sentry: file:../sentry-stub
