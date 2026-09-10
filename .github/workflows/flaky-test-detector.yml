@@ -47,6 +47,8 @@ jobs:
         working-directory: dev-packages/bundler-plugin-integration-tests/fixtures/esbuild
         run: |
           node -p 'JSON.stringify({ version: process.version, execArgv: process.execArgv, nodeOptions: process.env.NODE_OPTIONS })'
+          sed -n '1,120p' out/cjs-directives/baseline/strict.cjs
+          sed -n '1,120p' out/cjs-directives/baseline/sloppy.cjs
           sed -n '1,120p' out/cjs-directives/static-injection/strict.cjs
           sed -n '1,120p' out/cjs-directives/static-injection/sloppy.cjs
           sed -n '1,160p' out/cjs-directives/debug-id-injection/strict.cjs
@@ -55,6 +57,8 @@ jobs:
       - name: Execute generated bundles
         working-directory: dev-packages/bundler-plugin-integration-tests/fixtures/esbuild
         run: |
+          node out/cjs-directives/baseline/strict.cjs
+          node out/cjs-directives/baseline/sloppy.cjs
           node out/cjs-directives/static-injection/strict.cjs
           node out/cjs-directives/static-injection/sloppy.cjs
           node out/cjs-directives/debug-id-injection/strict.cjs

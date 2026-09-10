@@ -7,6 +7,18 @@ await esbuild.build({
     sloppy: "./src/sloppy-mode.cjs",
   },
   bundle: true,
+  outdir: "./out/cjs-directives/baseline",
+  outExtension: { ".js": ".cjs" },
+  minify: false,
+  format: "cjs",
+});
+
+await esbuild.build({
+  entryPoints: {
+    strict: "./src/strict-mode.cjs",
+    sloppy: "./src/sloppy-mode.cjs",
+  },
+  bundle: true,
   outdir: "./out/cjs-directives/static-injection",
   outExtension: { ".js": ".cjs" },
   minify: false,
