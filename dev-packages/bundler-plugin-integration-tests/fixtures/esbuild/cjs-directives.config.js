@@ -11,6 +11,7 @@ await esbuild.build({
   outExtension: { ".js": ".cjs" },
   minify: false,
   format: "cjs",
+  tsconfigRaw: { compilerOptions: { alwaysStrict: false } },
 });
 
 await esbuild.build({
@@ -23,6 +24,7 @@ await esbuild.build({
   outExtension: { ".js": ".cjs" },
   minify: false,
   format: "cjs",
+  tsconfigRaw: { compilerOptions: { alwaysStrict: false } },
   plugins: [
     sentryEsbuildPlugin({
       telemetry: false,
@@ -43,6 +45,7 @@ await esbuild.build({
   minify: false,
   format: "cjs",
   sourcemap: true,
+  tsconfigRaw: { compilerOptions: { alwaysStrict: false } },
   plugins: [
     sentryEsbuildPlugin({
       telemetry: false,
