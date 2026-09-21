@@ -15,6 +15,8 @@ import { DurableObject } from 'cloudflare:workers';
 
 class MyDurableObjectBase extends DurableObject<Env> {
   private throwOnExit = new WeakMap<WebSocket, Error>();
+  private testTags = new WeakMap<WebSocket, string>();
+
   async throwException(): Promise<void> {
     throw new Error('Should be recorded in Sentry.');
   }
@@ -36,6 +38,10 @@ class MyDurableObjectBase extends DurableObject<Env> {
       case '/ws': {
         const webSocketPair = new WebSocketPair();
         const [client, server] = Object.values(webSocketPair);
+        const testTag = url.searchParams.get('tag');
+        if (testTag) {
+          this.testTags.set(server, testTag);
+        }
         this.ctx.acceptWebSocket(server);
         return new Response(null, { status: 101, webSocket: client });
       }
@@ -58,6 +64,10 @@ class MyDurableObjectBase extends DurableObject<Env> {
   }
 
   webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): void | Promise<void> {
+    const testTag = this.testTags.get(ws);
+    if (testTag) {
+      Sentry.setTag('sentry_test', testTag);
+    }
     if (message === 'throwException') {
       throw new Error('Should be recorded in Sentry: webSocketMessage');
     } else if (message === 'throwOnExit') {
@@ -67,8 +77,13 @@ class MyDurableObjectBase extends DurableObject<Env> {
 
   webSocketClose(ws: WebSocket): void | Promise<void> {
     if (this.throwOnExit.has(ws)) {
+      const testTag = this.testTags.get(ws);
+      if (testTag) {
+        Sentry.setTag('sentry_test', testTag);
+      }
       const error = this.throwOnExit.get(ws)!;
       this.throwOnExit.delete(ws);
+      this.testTags.delete(ws);
       throw error;
     }
   }

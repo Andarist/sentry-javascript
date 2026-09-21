@@ -40,10 +40,11 @@ test("Request processed by DurableObject's fetch is recorded", async ({ baseURL 
 });
 
 test('Websocket.webSocketMessage', async ({ baseURL }) => {
+  const testTag = crypto.randomUUID();
   const eventWaiter = waitForError('cloudflare-workers-static', event => {
-    return event.exception?.values?.[0]?.value === 'Should be recorded in Sentry: webSocketMessage';
+    return event.tags?.['sentry_test'] === testTag;
   });
-  const url = new URL('/pass-to-object/ws', baseURL);
+  const url = new URL(`/pass-to-object/ws?tag=${testTag}`, baseURL);
   url.protocol = url.protocol.replace('http', 'ws');
   const socket = new WebSocket(url.toString());
   socket.addEventListener('open', () => {
@@ -56,10 +57,11 @@ test('Websocket.webSocketMessage', async ({ baseURL }) => {
 });
 
 test('Websocket.webSocketClose', async ({ baseURL }) => {
+  const testTag = crypto.randomUUID();
   const eventWaiter = waitForError('cloudflare-workers-static', event => {
-    return event.exception?.values?.[0]?.value === 'Should be recorded in Sentry: webSocketClose';
+    return event.tags?.['sentry_test'] === testTag;
   });
-  const url = new URL('/pass-to-object/ws', baseURL);
+  const url = new URL(`/pass-to-object/ws?tag=${testTag}`, baseURL);
   url.protocol = url.protocol.replace('http', 'ws');
   const socket = new WebSocket(url.toString());
   socket.addEventListener('open', () => {
